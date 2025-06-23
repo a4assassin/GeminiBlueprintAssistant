@@ -26,6 +26,7 @@ public class GeminiBlueprintAssistant : ModuleRules
 			new string[]
 			{
 				"Core",
+               
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -39,12 +40,23 @@ public class GeminiBlueprintAssistant : ModuleRules
 				"Slate",
 				"SlateCore",
 				"EditorStyle",
-				"UnrealEd",
-				"InputCore",
+                "EditorWidgets",
+
+
+                "InputCore",
 				"ToolMenus",
 				"HTTP",
 				"Json",
-				"JsonUtilities"
+				"JsonUtilities",
+                "AssetTools",
+                "AssetRegistry",
+                "Blutility",
+                "PropertyEditor",
+
+                "Kismet",
+                "GraphEditor",
+                "UnrealEd",
+				
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

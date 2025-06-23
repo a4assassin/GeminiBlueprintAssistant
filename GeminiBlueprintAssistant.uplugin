@@ -4,20 +4,20 @@
 	"VersionName": "1.0",
 	"FriendlyName": "GeminiBlueprintAssistant",
 	"Description": "This plugin helps integrating Google's Gemini to assist with Unreal's blueprint like summarising and documenting.",
-	"Category": "Other",
+	"Category": "Editor",
 	"CreatedBy": "AnuragJ",
 	"CreatedByURL": "",
 	"DocsURL": "",
 	"MarketplaceURL": "",
 	"SupportURL": "",
 	"CanContainContent": true,
-	"IsBetaVersion": false,
+	"IsBetaVersion": true,
 	"IsExperimentalVersion": false,
 	"Installed": false,
 	"Modules": [
 		{
 			"Name": "GeminiBlueprintAssistant",
-			"Type": "Runtime",
+			"Type": "Editor",
 			"LoadingPhase": "Default"
 		}
 	]

@@ -5,7 +5,15 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Input/SMultiLineEditableTextBox.h"
 #include "Widgets/Input/SButton.h"
-#include "GeminiAPIClient.h" // Include our API client header
+#include "GeminiAPIClient.h" // Your Gemini API client header
+
+// Forward declarations for necessary Unreal Engine classes/interfaces
+class UBlueprint;
+class UEdGraph;
+class UEdGraphNode;
+class IBlueprintEditor; // Interface for Blueprint editor instance (exposed via FBlueprintEditorModule.h)
+class SGraphEditor;     // The actual graph editor widget (contains selection/view methods)
+
 
 /**
  * Implements the main Gemini Blueprint Assistant panel.
@@ -20,27 +28,23 @@ public:
 	void Construct(const FArguments& InArgs);
 
 private:
-	/** Callback for when the "Process" button is clicked. */
+	// --- UI Callbacks ---
 	FReply OnProcessButtonClicked();
-
-	/** Callback for when the text in the prompt box changes. */
 	void OnPromptTextChanged(const FText& InText);
-
-	/** Callback for when the text in the prompt box is committed (e.g., on Enter key). */
 	void OnPromptTextCommitted(const FText& InText, ETextCommit::Type InCommitType);
-
-	/** Callback for when the Gemini API returns a response. */
 	void OnGeminiResponse(FString ResponseContent, bool bSuccess, FString ErrorMessage);
 
-	/** Holds the current prompt text. */
+	// --- Blueprint Interaction Functions ---
+	UBlueprint* GetActiveBlueprint() const;
+	TArray<UEdGraphNode*> GetSelectedBlueprintNodes(UBlueprint* InBlueprint) const;
+	FString ExtractNodeDataForGemini(const TArray<UEdGraphNode*>& InNodes) const;
+	void AddCommentNodeToBlueprint(UBlueprint* InBlueprint, UEdGraph* TargetGraph, const FString& CommentText) const;
+
+	// --- UI Members ---
 	TSharedPtr<SMultiLineEditableTextBox> PromptTextBox;
-
-	/** Holds the response text. */
 	TSharedPtr<STextBlock> ResponseTextBlock;
-
-	/** The current prompt text entered by the user. */
 	FText CurrentPromptText;
 
-	/** Instance of our Gemini API Client. */
-	TSharedPtr<FGeminiAPIClient> GeminiClient; // Add this line
+	// --- API Client Member ---
+	TSharedPtr<FGeminiAPIClient> GeminiClient;
 };
