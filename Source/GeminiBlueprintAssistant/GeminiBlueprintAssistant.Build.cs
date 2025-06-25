@@ -26,7 +26,8 @@ public class GeminiBlueprintAssistant : ModuleRules
 			new string[]
 			{
 				"Core",
-               
+				"BlueprintGraph",
+                "KismetCompiler"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);

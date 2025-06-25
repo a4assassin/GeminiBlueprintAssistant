@@ -23,7 +23,7 @@
 #include "EdGraphNode_Comment.h"
 #include "EdGraph/EdGraphSchema.h"
 
-#include "K2Node.h"                       
+#include "K2Node.h"
 
 #include "BlueprintEditorModule.h"        // This header defines FBlueprintEditorModule AND the IBlueprintEditor interface.
 
@@ -35,6 +35,8 @@
 #include "SGraphPanel.h"
 
 #include "ScopedTransaction.h"
+
+#include "BlueprintNodePreprocessor.h"
 
 #define LOCTEXT_NAMESPACE "FGeminiBlueprintAssistantModule"
 
@@ -170,7 +172,7 @@ FReply GeminiAssistantPanel::OnProcessButtonClicked()
 		ResponseTextBlock->SetText(LOCTEXT("ClientError", "Gemini API Client is not initialized."));
 		UE_LOG(LogTemp, Error, TEXT("GeminiAPIClient: Client not valid!"));
 	}
-
+	
 	return FReply::Handled();
 }
 
@@ -283,6 +285,7 @@ TArray<UEdGraphNode*> GeminiAssistantPanel::GetSelectedBlueprintNodes(UBlueprint
 
 FString GeminiAssistantPanel::ExtractNodeDataForGemini(const TArray<UEdGraphNode*>& InNodes) const
 {
+	/*
 	FString ExtractedData;
 	if (InNodes.IsEmpty())
 	{
@@ -334,8 +337,18 @@ FString GeminiAssistantPanel::ExtractNodeDataForGemini(const TArray<UEdGraphNode
 		ExtractedData += FString::Printf(TEXT("  }%s\n"), (i < InNodes.Num() - 1 ? TEXT(",") : TEXT(""))); // End Node Object
 	}
 	ExtractedData += TEXT("]\n"); // End Nodes Array
-
-	return ExtractedData;
+	*/
+	FBlueprintNodePreprocessor NodePreprocessor;
+	TArray<UK2Node*> SelectedBPNodes;
+	for (UEdGraphNode* Node : InNodes)
+	{
+		UK2Node* tempNode = Cast<UK2Node>(Node);
+		SelectedBPNodes.Add(tempNode);
+	}
+	FString NormalisedNodeText = NodePreprocessor.PreprocessNodes(SelectedBPNodes);
+	//ResponseTextBlock->SetText(FText::FromString(NormalisedNodeText));
+	
+	return NormalisedNodeText;
 }
 
 void GeminiAssistantPanel::AddCommentNodeToBlueprint(UBlueprint* InBlueprint, UEdGraph* TargetGraph, const FString& CommentText) const
