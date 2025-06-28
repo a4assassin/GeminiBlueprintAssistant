@@ -14,7 +14,10 @@ class UEdGraphNode;
 class IBlueprintEditor; // Interface for Blueprint editor instance (exposed via FBlueprintEditorModule.h)
 class SGraphEditor;     // The actual graph editor widget (contains selection/view methods)
 
-
+struct LLMResponseParts {
+	FString Details;
+	FString Summary;
+};
 /**
  * Implements the main Gemini Blueprint Assistant panel.
  */
@@ -39,11 +42,13 @@ private:
 	TArray<UEdGraphNode*> GetSelectedBlueprintNodes(UBlueprint* InBlueprint) const;
 	FString ExtractNodeDataForGemini(const TArray<UEdGraphNode*>& InNodes) const;
 	void AddCommentNodeToBlueprint(UBlueprint* InBlueprint, UEdGraph* TargetGraph, const FString& CommentText) const;
+	LLMResponseParts ParseLLMResponse(const FString& FullResponse);
 
 	// --- UI Members ---
 	TSharedPtr<SMultiLineEditableTextBox> PromptTextBox;
 	TSharedPtr<STextBlock> ResponseTextBlock;
 	FText CurrentPromptText;
+	LLMResponseParts Results;
 
 	// --- API Client Member ---
 	TSharedPtr<FGeminiAPIClient> GeminiClient;

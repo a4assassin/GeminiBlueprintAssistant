@@ -152,13 +152,13 @@ FReply GeminiAssistantPanel::OnProcessButtonClicked()
 	FString PromptToSend;
 	if (NodesData.IsEmpty())
 	{
-		PromptToSend = FString::Printf(TEXT("Summarize the main purpose of the Blueprint named '%s'.Provide a concise description.Blueprint Graph Data : % s\nUser Query : % s"),
+		PromptToSend = FString::Printf(TEXT("Summarize the main purpose of the Blueprint named '%s'. Please respond in this exact format :  DETAILS: [summarise the bluprint in a user-freindly manner with important information.] \nSUMMARY: [concise one-line summary].Blueprint Graph Data : % s\nUser Query : % s"),
 			*ActiveBlueprint->GetName(), *NodesData, *CurrentPromptText.ToString());
 		ResponseTextBlock->SetText(LOCTEXT("SummarizingAll", "Summarizing entire Blueprint with Gemini..."));
 	}
 	else
 	{
-		PromptToSend = FString::Printf(TEXT("Given the following Unreal Engine Blueprint nodes from Blueprint '%s', summarize their collective purpose and, if appropriate, suggest a concise comment for them. Blueprint Graph Nodes Data: %s\nUser Query: %s"),
+		PromptToSend = FString::Printf(TEXT("Given the following Unreal Engine Blueprint nodes from Blueprint '%s', summarize their collective purpose and, Please respond in this exact format :  DETAILS: [summarise the selected nodes in user-friendly manner] \nSUMMARY: [concise one-line summary]. Blueprint Graph Nodes Data: %s\nUser Query: %s"),
 			*ActiveBlueprint->GetName(), *NodesData, *CurrentPromptText.ToString());
 		ResponseTextBlock->SetText(LOCTEXT("SummarizingSelected", "Summarizing selected Blueprint nodes with Gemini..."));
 	}
@@ -193,7 +193,8 @@ void GeminiAssistantPanel::OnGeminiResponse(FString ResponseContent, bool bSucce
 {
 	if (bSuccess)
 	{
-		ResponseTextBlock->SetText(FText::FromString(ResponseContent));
+		Results = ParseLLMResponse(ResponseContent);
+		ResponseTextBlock->SetText(FText::FromString(Results.Details));
 		UE_LOG(LogTemp, Log, TEXT("Gemini API Response: %s"), *ResponseContent);
 
 		// FOR TESTING: Try adding a comment based on response
@@ -202,7 +203,7 @@ void GeminiAssistantPanel::OnGeminiResponse(FString ResponseContent, bool bSucce
 		if (ActiveBlueprint && ActiveBlueprint->UbergraphPages.Num() > 0)
 		{
 			// Add comment to the first graph (usually Event Graph) for simplicity
-			AddCommentNodeToBlueprint(ActiveBlueprint, ActiveBlueprint->UbergraphPages[0], ResponseContent);
+			AddCommentNodeToBlueprint(ActiveBlueprint, ActiveBlueprint->UbergraphPages[0], Results.Summary);
 		}
 	}
 	else
@@ -435,7 +436,7 @@ void GeminiAssistantPanel::AddCommentNodeToBlueprint(UBlueprint* InBlueprint, UE
 			NewCommentNode->NodePosY = MinY;
 			NewCommentNode->NodeWidth = MaxX - MinX;
 			NewCommentNode->NodeHeight = MaxY - MinY;
-			NewCommentNode->CommentColor = FLinearColor::Yellow;
+			NewCommentNode->CommentColor = FLinearColor::White;
 
 			for (UObject* Node : FoundSelectedNodes)
 			{
@@ -449,4 +450,28 @@ void GeminiAssistantPanel::AddCommentNodeToBlueprint(UBlueprint* InBlueprint, UE
 		FBlueprintEditorUtils::MarkBlueprintAsModified(InBlueprint);
 	}
 }
+LLMResponseParts GeminiAssistantPanel::ParseLLMResponse(const FString& FullResponse)
+{
+	LLMResponseParts Result;
+
+	FString DetailsMarker = TEXT("DETAILS:");
+	FString SummaryMarker = TEXT("SUMMARY:");
+
+	int32 DetailsIndex = FullResponse.Find(DetailsMarker);
+	int32 SummaryIndex = FullResponse.Find(SummaryMarker);
+
+	if (DetailsIndex != INDEX_NONE && SummaryIndex != INDEX_NONE) {
+		// Extract DETAILS (from DETAILS: to SUMMARY:)
+		int32 DetailsStart = DetailsIndex + DetailsMarker.Len();
+		int32 DetailsLength = SummaryIndex - DetailsStart;
+		Result.Details = FullResponse.Mid(DetailsStart, DetailsLength).TrimStartAndEnd();
+
+		// Extract SUMMARY (from SUMMARY: to end)
+		int32 SummaryStart = SummaryIndex + SummaryMarker.Len();
+		Result.Summary = FullResponse.Mid(SummaryStart).TrimStartAndEnd();
+	}
+
+	return Result;
+}
+
 #undef LOCTEXT_NAMESPACE
