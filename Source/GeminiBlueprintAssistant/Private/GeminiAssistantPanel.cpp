@@ -162,7 +162,7 @@ FReply GeminiAssistantPanel::OnProcessButtonClicked()
 			*ActiveBlueprint->GetName(), *NodesData, *CurrentPromptText.ToString());
 		ResponseTextBlock->SetText(LOCTEXT("SummarizingSelected", "Summarizing selected Blueprint nodes with Gemini..."));
 	}
-
+	PromptToSend += "\nRespond as if you're writing for a basic text display that cannot render formatting - use only letters, numbers, basic punctuation, and spaces.";
 	if (GeminiClient.IsValid())
 	{
 		GeminiClient->GenerateContent(PromptToSend, APIKey);
