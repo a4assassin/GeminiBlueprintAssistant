@@ -40,6 +40,7 @@ private:
 	// --- Blueprint Interaction Functions ---
 	UBlueprint* GetActiveBlueprint() const;
 	TArray<UEdGraphNode*> GetSelectedBlueprintNodes(UBlueprint* InBlueprint) const;
+	TArray<UEdGraphNode*> GetAllNodesFromActiveGraph(UBlueprint* InBlueprint) const;
 	FString ExtractNodeDataForGemini(const TArray<UEdGraphNode*>& InNodes) const;
 	void AddCommentNodeToBlueprint(UBlueprint* InBlueprint, UEdGraph* TargetGraph, const FString& CommentText) const;
 	LLMResponseParts ParseLLMResponse(const FString& FullResponse);

@@ -150,11 +150,22 @@ FReply GeminiAssistantPanel::OnProcessButtonClicked()
 	FString NodesData = ExtractNodeDataForGemini(SelectedNodes);
 
 	FString PromptToSend;
-	if (NodesData.IsEmpty())
+	if (SelectedNodes.Num() == 0)
 	{
-		PromptToSend = FString::Printf(TEXT("Summarize the main purpose of the Blueprint named '%s'. Please respond in this exact format :  DETAILS: [summarise the bluprint in a user-freindly manner with important information.] \nSUMMARY: [concise one-line summary].Blueprint Graph Data : % s\nUser Query : % s"),
-			*ActiveBlueprint->GetName(), *NodesData, *CurrentPromptText.ToString());
-		ResponseTextBlock->SetText(LOCTEXT("SummarizingAll", "Summarizing entire Blueprint with Gemini..."));
+		TArray<UEdGraphNode*> NodesToProcess = GetAllNodesFromActiveGraph(ActiveBlueprint);
+		NodesData = ExtractNodeDataForGemini(NodesToProcess);
+
+		if (NodesData.IsEmpty())
+		{
+			PromptToSend = FString::Printf(TEXT("Summarize the main purpose of the Blueprint named '%s'. The graph appears to be empty or has no processable nodes. Please respond in this exact format :  DETAILS: [summarise the blueprint in a user-friendly manner with available information]. User Query: %s"),
+				*ActiveBlueprint->GetName(), *CurrentPromptText.ToString());
+		}
+		else
+		{
+			PromptToSend = FString::Printf(TEXT("Given the following Unreal Engine Blueprint graph from Blueprint '%s', summarize the entire graph's purpose and functionality. Please respond in this exact format :  DETAILS: [summarise the nodes in user-friendly manner]\nSUMMARY:[keep empty]. Blueprint Graph Data: %s\nUser Query: %s"),
+				*ActiveBlueprint->GetName(), *NodesData, *CurrentPromptText.ToString());
+		}
+		ResponseTextBlock->SetText(LOCTEXT("SummarizingEntireGraph", "Summarizing entire Blueprint graph with Gemini..."));
 	}
 	else
 	{
@@ -203,7 +214,7 @@ void GeminiAssistantPanel::OnGeminiResponse(FString ResponseContent, bool bSucce
 		if (ActiveBlueprint && ActiveBlueprint->UbergraphPages.Num() > 0)
 		{
 			// Add comment to the first graph (usually Event Graph) for simplicity
-			AddCommentNodeToBlueprint(ActiveBlueprint, ActiveBlueprint->UbergraphPages[0], Results.Summary);
+			Results.Summary.Len() > 1 ? AddCommentNodeToBlueprint(ActiveBlueprint, ActiveBlueprint->UbergraphPages[0], Results.Summary) : (void)0;
 		}
 	}
 	else
@@ -282,6 +293,48 @@ TArray<UEdGraphNode*> GeminiAssistantPanel::GetSelectedBlueprintNodes(UBlueprint
 	}
 
 	return SelectedNodes;
+}
+
+TArray<UEdGraphNode*> GeminiAssistantPanel::GetAllNodesFromActiveGraph(UBlueprint* InBlueprint) const
+{
+	TArray<UEdGraphNode*> AllNodes;
+
+	if (!InBlueprint)
+	{
+		return AllNodes;
+	}
+
+	// Get the currently focused graph from the Blueprint editor
+	FBlueprintEditorModule& BlueprintEditorModule = FModuleManager::LoadModuleChecked<FBlueprintEditorModule>("Kismet");
+
+	TSharedPtr<IBlueprintEditor> FoundBlueprintEditor;
+
+	for (TSharedRef<IBlueprintEditor> BlueprintEditorInstance : BlueprintEditorModule.GetBlueprintEditors())
+	{
+		if (FBlueprintEditorUtils::FindBlueprintForGraph(BlueprintEditorInstance->GetFocusedGraph()) == InBlueprint)
+		{
+			FoundBlueprintEditor = BlueprintEditorInstance;
+			break;
+		}
+	}
+
+	if (FoundBlueprintEditor.IsValid())
+	{
+		UEdGraph* FocusedGraph = FoundBlueprintEditor->GetFocusedGraph();
+		if (FocusedGraph)
+		{
+			// Get all nodes from the focused graph
+			for (UEdGraphNode* Node : FocusedGraph->Nodes)
+			{
+				if (Node && IsValid(Node))
+				{
+					AllNodes.Add(Node);
+				}
+			}
+		}
+	}
+
+	return AllNodes;
 }
 
 FString GeminiAssistantPanel::ExtractNodeDataForGemini(const TArray<UEdGraphNode*>& InNodes) const
