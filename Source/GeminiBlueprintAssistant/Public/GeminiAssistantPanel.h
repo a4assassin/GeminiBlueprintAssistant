@@ -48,6 +48,7 @@ private:
 	// --- UI Members ---
 	TSharedPtr<SMultiLineEditableTextBox> PromptTextBox;
 	TSharedPtr<STextBlock> ResponseTextBlock;
+	TSharedPtr<SCheckBox> WriteCommentsCheckBox;
 	FText CurrentPromptText;
 	LLMResponseParts Results;
 

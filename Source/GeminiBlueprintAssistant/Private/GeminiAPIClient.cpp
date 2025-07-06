@@ -1,16 +1,16 @@
 // Private/GeminiAPIClient.cpp
 #include "GeminiAPIClient.h"
-#include "HttpModule.h" // For FHttpModule
+#include "HttpModule.h"
 #include "Interfaces/IHttpResponse.h"
-#include "Serialization/JsonSerializer.h" // For JSON parsing
-#include "Dom/JsonObject.h" // For JSON object handling
-#include "Templates/SharedPointer.h" // For TSharedPtr, TSharedRef
+#include "Serialization/JsonSerializer.h"
+#include "Dom/JsonObject.h"
+#include "Templates/SharedPointer.h"
 
 #define LOCTEXT_NAMESPACE "FGeminiAPIClient"
 
 FGeminiAPIClient::FGeminiAPIClient()
 {
-	// Constructor: Can initialize default values here if needed
+	
 }
 
 void FGeminiAPIClient::GenerateContent(const FString& InPrompt, const FString& APIKey)
@@ -22,11 +22,9 @@ void FGeminiAPIClient::GenerateContent(const FString& InPrompt, const FString& A
 		return;
 	}
 
-	CurrentAPIKey = APIKey; // Store the key for use in the callback
+	CurrentAPIKey = APIKey;
 
-	// --- CORRECTED CODE START ---
 	FString Url = TEXT("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=") + APIKey;
-	// --- CORRECTED CODE END ---
 
 	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
 	Request->OnProcessRequestComplete().BindRaw(this, &FGeminiAPIClient::OnRequestComplete);
@@ -40,14 +38,13 @@ void FGeminiAPIClient::GenerateContent(const FString& InPrompt, const FString& A
 	TSharedPtr<FJsonObject> ContentObject = MakeShareable(new FJsonObject());
 	TArray<TSharedPtr<FJsonValue>> PartsArray;
 
-	// --- CORRECTED CODE START ---
 	// Create a new FJsonObject to hold the "text" field for the part
 	TSharedPtr<FJsonObject> TextPartObject = MakeShareable(new FJsonObject());
 	TextPartObject->SetStringField(TEXT("text"), InPrompt); // Set the "text" field with the actual prompt
 
 	// Add this TextPartObject (wrapped as an FJsonValueObject) to the PartsArray
 	PartsArray.Add(MakeShareable(new FJsonValueObject(TextPartObject)));
-	// --- CORRECTED CODE END ---
+
 	ContentObject->SetArrayField(TEXT("parts"), PartsArray);
 	ContentsArray.Add(MakeShareable(new FJsonValueObject(ContentObject)));
 	RequestBody->SetArrayField(TEXT("contents"), ContentsArray);
@@ -75,7 +72,6 @@ void FGeminiAPIClient::OnRequestComplete(FHttpRequestPtr Request, FHttpResponseP
 
 	if (bConnectedSuccessfully)
 	{
-		// FIX 1: Corrected IsSuccessful check
 		if (Response.IsValid() && Response->GetResponseCode() >= 200 && Response->GetResponseCode() <= 299)
 		{
 			ResponseContent = Response->GetContentAsString();
@@ -93,29 +89,26 @@ void FGeminiAPIClient::OnRequestComplete(FHttpRequestPtr Request, FHttpResponseP
 				{
 					if (CandidatesArray->Num() > 0)
 					{
-						const TSharedPtr<FJsonObject>* CandidateObjectValue; // Renamed to avoid confusion
+						const TSharedPtr<FJsonObject>* CandidateObjectValue;
 						if ((*CandidatesArray)[0]->TryGetObject(CandidateObjectValue))
 						{
-							// FIX 2: Added dereference for CandidateObjectValue
-							const TSharedPtr<FJsonObject>* ContentObjectValue; // Renamed
+							const TSharedPtr<FJsonObject>* ContentObjectValue;
 							if ((*CandidateObjectValue)->TryGetObjectField(TEXT("content"), ContentObjectValue))
 							{
-								// FIX 2: Added dereference for ContentObjectValue
 								const TArray<TSharedPtr<FJsonValue>>* PartsArray;
 								if ((*ContentObjectValue)->TryGetArrayField(TEXT("parts"), PartsArray))
 								{
 									if (PartsArray->Num() > 0)
 									{
-										const TSharedPtr<FJsonObject>* PartObjectValue; // Renamed
+										const TSharedPtr<FJsonObject>* PartObjectValue;
 										if ((*PartsArray)[0]->TryGetObject(PartObjectValue))
 										{
-											// FIX 2: Added dereference for PartObjectValue
 											FString Text;
 											if ((*PartObjectValue)->TryGetStringField(TEXT("text"), Text))
 											{
 												ResponseContent = Text;
 												bSuccess = true;
-												ErrorMessage = TEXT(""); // Clear error on success
+												ErrorMessage = TEXT("");
 											}
 										}
 									}
@@ -124,7 +117,6 @@ void FGeminiAPIClient::OnRequestComplete(FHttpRequestPtr Request, FHttpResponseP
 						}
 					}
 				}
-				// Check for 'error' field if no candidates found
 				else if (JsonResponse->HasField(TEXT("error")))
 				{
 					const TSharedPtr<FJsonObject>* ErrorObject;

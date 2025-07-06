@@ -8,7 +8,8 @@
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Input/SMultiLineEditableTextBox.h" 
-#include "Widgets/Input/SButton.h" 
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h" 
 #include "EditorStyleSet.h"
 
 // Core includes for config/file operations
@@ -25,7 +26,7 @@
 
 #include "K2Node.h"
 
-#include "BlueprintEditorModule.h"        // This header defines FBlueprintEditorModule AND the IBlueprintEditor interface.
+#include "BlueprintEditorModule.h"
 
 #include "Editor.h"
 
@@ -41,7 +42,6 @@
 #define LOCTEXT_NAMESPACE "FGeminiBlueprintAssistantModule"
 
 
-// --- CONSTRUCTOR AND BASIC UI CALLBACKS (Keeping as they were) ---
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void GeminiAssistantPanel::Construct(const FArguments& InArgs)
 {
@@ -56,7 +56,7 @@ void GeminiAssistantPanel::Construct(const FArguments& InArgs)
 				[
 					SNew(SVerticalBox)
 
-						+ SVerticalBox::Slot()
+						/* + SVerticalBox::Slot()
 						.AutoHeight()
 						.Padding(FMargin(0, 5, 0, 10))
 						[
@@ -74,16 +74,27 @@ void GeminiAssistantPanel::Construct(const FArguments& InArgs)
 								.OnTextCommitted(this, &GeminiAssistantPanel::OnPromptTextCommitted)
 								.AutoWrapText(true)
 						]
-
+						*/
+						+SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(FMargin(0, 0, 0, 5))
+						[
+							SAssignNew(WriteCommentsCheckBox, SCheckBox)
+								.Content()
+								[
+									SNew(STextBlock)
+										.Text(LOCTEXT("WriteCommentsLabel", "Write comment for selected nodes."))
+								]
+						]
 						+ SVerticalBox::Slot()
 						.AutoHeight()
-						.HAlign(HAlign_Right)
+						.HAlign(HAlign_Left)
 						.Padding(FMargin(0, 0, 0, 10))
 						[
 							SNew(SButton)
-								.Text(LOCTEXT("ProcessButtonText", "Process with Gemini"))
+								.Text(LOCTEXT("ProcessButtonText", "Summarize with Gemini"))
 								.OnClicked(this, &GeminiAssistantPanel::OnProcessButtonClicked)
-								.IsEnabled_Lambda([this]() { return !CurrentPromptText.IsEmpty(); })
+								.IsEnabled_Lambda([this]() { return true; /*!CurrentPromptText.IsEmpty();*/ })
 						]
 
 						+ SVerticalBox::Slot()
@@ -121,12 +132,13 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 FReply GeminiAssistantPanel::OnProcessButtonClicked()
 {
+	/*
 	if (CurrentPromptText.IsEmpty())
 	{
 		ResponseTextBlock->SetText(LOCTEXT("EmptyPromptWarning", "Please enter a prompt."));
 		return FReply::Handled();
 	}
-
+	*/
 	ResponseTextBlock->SetText(LOCTEXT("ProcessingRequest", "Sending request to Gemini..."));
 	UE_LOG(LogTemp, Log, TEXT("Gemini Blueprint Assistant: Process button clicked. Prompt: %s"), *CurrentPromptText.ToString());
 
@@ -157,20 +169,23 @@ FReply GeminiAssistantPanel::OnProcessButtonClicked()
 
 		if (NodesData.IsEmpty())
 		{
-			PromptToSend = FString::Printf(TEXT("Summarize the main purpose of the Blueprint named '%s'. The graph appears to be empty or has no processable nodes. Please respond in this exact format :  DETAILS: [summarise the blueprint in a user-friendly manner with available information]. User Query: %s"),
-				*ActiveBlueprint->GetName(), *CurrentPromptText.ToString());
+			PromptToSend = FString::Printf(TEXT("Summarize the main purpose of the Blueprint named '%s'. The graph appears to be empty or has no processable nodes. Please respond in this exact format :  DETAILS: [summarise the blueprint in a user-friendly manner with available information]."),
+				*ActiveBlueprint->GetName(),
+				CurrentPromptText.IsEmpty() ? TEXT("") : *FString::Printf(TEXT("\nUser Query: %s"), *CurrentPromptText.ToString()));
 		}
 		else
 		{
-			PromptToSend = FString::Printf(TEXT("Given the following Unreal Engine Blueprint graph from Blueprint '%s', summarize the entire graph's purpose and functionality. Please respond in this exact format :  DETAILS: [summarise the nodes in user-friendly manner]\nSUMMARY:[keep empty]. Blueprint Graph Data: %s\nUser Query: %s"),
-				*ActiveBlueprint->GetName(), *NodesData, *CurrentPromptText.ToString());
+			PromptToSend = FString::Printf(TEXT("Given the following Unreal Engine Blueprint graph from Blueprint '%s', summarize the entire graph's purpose and functionality. Please respond in this exact format :  DETAILS: [summarise the nodes in user-friendly manner]\nSUMMARY:[keep empty]. Blueprint Graph Data: %s\n"),
+				*ActiveBlueprint->GetName(), *NodesData, 
+				CurrentPromptText.IsEmpty() ? TEXT("") : *FString::Printf(TEXT("\nUser Query: %s"), *CurrentPromptText.ToString()));
 		}
 		ResponseTextBlock->SetText(LOCTEXT("SummarizingEntireGraph", "Summarizing entire Blueprint graph with Gemini..."));
 	}
 	else
 	{
-		PromptToSend = FString::Printf(TEXT("Given the following Unreal Engine Blueprint nodes from Blueprint '%s', summarize their collective purpose and, Please respond in this exact format :  DETAILS: [summarise the selected nodes in user-friendly manner] \nSUMMARY: [concise one-line summary]. Blueprint Graph Nodes Data: %s\nUser Query: %s"),
-			*ActiveBlueprint->GetName(), *NodesData, *CurrentPromptText.ToString());
+		PromptToSend = FString::Printf(TEXT("Given the following Unreal Engine Blueprint nodes from Blueprint '%s', summarize their collective purpose and, Please respond in this exact format :  DETAILS: [summarise the selected nodes in user-friendly manner] \nSUMMARY: [concise one-line summary]. Blueprint Graph Nodes Data: %s\n"),
+			*ActiveBlueprint->GetName(), *NodesData, 
+			CurrentPromptText.IsEmpty() ? TEXT("") : *FString::Printf(TEXT("\nUser Query: %s"), *CurrentPromptText.ToString()));
 		ResponseTextBlock->SetText(LOCTEXT("SummarizingSelected", "Summarizing selected Blueprint nodes with Gemini..."));
 	}
 	PromptToSend += "\nRespond as if you're writing for a basic text display that cannot render formatting - use only letters, numbers, basic punctuation, and spaces.";
@@ -208,10 +223,9 @@ void GeminiAssistantPanel::OnGeminiResponse(FString ResponseContent, bool bSucce
 		ResponseTextBlock->SetText(FText::FromString(Results.Details));
 		UE_LOG(LogTemp, Log, TEXT("Gemini API Response: %s"), *ResponseContent);
 
-		// FOR TESTING: Try adding a comment based on response
 		UBlueprint* ActiveBlueprint = GetActiveBlueprint();
 		// Ensure there's an active blueprint and at least one graph (UbergraphPages[0] is typically the Event Graph)
-		if (ActiveBlueprint && ActiveBlueprint->UbergraphPages.Num() > 0)
+		if (ActiveBlueprint && ActiveBlueprint->UbergraphPages.Num() > 0 && WriteCommentsCheckBox->IsChecked())
 		{
 			// Add comment to the first graph (usually Event Graph) for simplicity
 			Results.Summary.Len() > 1 ? AddCommentNodeToBlueprint(ActiveBlueprint, ActiveBlueprint->UbergraphPages[0], Results.Summary) : (void)0;
@@ -229,7 +243,6 @@ void GeminiAssistantPanel::OnGeminiResponse(FString ResponseContent, bool bSucce
 
 UBlueprint* GeminiAssistantPanel::GetActiveBlueprint() const
 {
-	// GEditor is a global pointer to the editor engine. It's always valid in editor builds.
 	if (GEditor)
 	{
 		// The UAssetEditorSubsystem manages all currently open asset editors.
@@ -244,13 +257,12 @@ UBlueprint* GeminiAssistantPanel::GetActiveBlueprint() const
 				// Try to cast each edited asset to a UBlueprint.
 				if (UBlueprint* Blueprint = Cast<UBlueprint>(Asset))
 				{
-					// Found an active Blueprint.
 					return Blueprint;
 				}
 			}
 		}
 	}
-	return nullptr; // No active Blueprint found.
+	return nullptr; 
 }
 
 TArray<UEdGraphNode*> GeminiAssistantPanel::GetSelectedBlueprintNodes(UBlueprint* InBlueprint) const
@@ -271,7 +283,7 @@ TArray<UEdGraphNode*> GeminiAssistantPanel::GetSelectedBlueprintNodes(UBlueprint
 		if (FBlueprintEditorUtils::FindBlueprintForGraph(BlueprintEditorInstance->GetFocusedGraph()) == InBlueprint)
 		{
 			FoundBlueprintEditor = BlueprintEditorInstance;
-			break; // Found the correct editor.
+			break;
 		}
 	}
 
@@ -400,7 +412,6 @@ FString GeminiAssistantPanel::ExtractNodeDataForGemini(const TArray<UEdGraphNode
 		SelectedBPNodes.Add(tempNode);
 	}
 	FString NormalisedNodeText = NodePreprocessor.PreprocessNodes(SelectedBPNodes);
-	//ResponseTextBlock->SetText(FText::FromString(NormalisedNodeText));
 	
 	return NormalisedNodeText;
 }
@@ -478,7 +489,7 @@ void GeminiAssistantPanel::AddCommentNodeToBlueprint(UBlueprint* InBlueprint, UE
 					MaxY = FMath::Max(MaxY, NodeY + NodeHeight);
 				}
 			}
-			const float Padding = 50.0f;
+			const float Padding = 65.f;
 			MinX -= Padding;
 			MinY -= Padding;
 			MaxX += Padding;
