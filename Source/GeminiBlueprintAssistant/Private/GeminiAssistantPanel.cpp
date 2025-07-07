@@ -3,6 +3,7 @@
 #include "SlateOptMacros.h"
 
 // UI related includes (Direct Slate widget headers)
+#include "Widgets/Layout/SWidgetSwitcher.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/SBoxPanel.h"
@@ -48,83 +49,28 @@ void GeminiAssistantPanel::Construct(const FArguments& InArgs)
 	GeminiClient = MakeShared<FGeminiAPIClient>();
 	GeminiClient->OnGeminiResponseReceived.BindRaw(this, &GeminiAssistantPanel::OnGeminiResponse);
 
+	bHasValidApiKey = CheckApiKeyExists();
+
 	ChildSlot
 		[
 			SNew(SBorder)
 				.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
 				.Padding(FMargin(10.0f))
 				[
-					SNew(SVerticalBox)
-
-						/* + SVerticalBox::Slot()
-						.AutoHeight()
-						.Padding(FMargin(0, 5, 0, 10))
+					SAssignNew(ContentSwitcher, SWidgetSwitcher)
+						+ SWidgetSwitcher::Slot()
 						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("PromptLabel", "Enter your prompt for Gemini:"))
-								.Font(FAppStyle::GetFontStyle("BoldFont"))
+							CreateApiKeySetupWidget()
 						]
-						+ SVerticalBox::Slot()
-						.MaxHeight(200)
-						.Padding(FMargin(0, 0, 0, 10))
+						+ SWidgetSwitcher::Slot()
 						[
-							SAssignNew(PromptTextBox, SMultiLineEditableTextBox)
-								.HintText(LOCTEXT("PromptHint", "e.g., Summarize the selected nodes and add comments."))
-								.OnTextChanged(this, &GeminiAssistantPanel::OnPromptTextChanged)
-								.OnTextCommitted(this, &GeminiAssistantPanel::OnPromptTextCommitted)
-								.AutoWrapText(true)
-						]
-						*/
-						+SVerticalBox::Slot()
-						.AutoHeight()
-						.Padding(FMargin(0, 0, 0, 5))
-						[
-							SAssignNew(WriteCommentsCheckBox, SCheckBox)
-								.Content()
-								[
-									SNew(STextBlock)
-										.Text(LOCTEXT("WriteCommentsLabel", "Write comment for selected nodes."))
-								]
-						]
-						+ SVerticalBox::Slot()
-						.AutoHeight()
-						.HAlign(HAlign_Left)
-						.Padding(FMargin(0, 0, 0, 10))
-						[
-							SNew(SButton)
-								.Text(LOCTEXT("ProcessButtonText", "Summarize with Gemini"))
-								.OnClicked(this, &GeminiAssistantPanel::OnProcessButtonClicked)
-								.IsEnabled_Lambda([this]() { return true; /*!CurrentPromptText.IsEmpty();*/ })
-						]
-
-						+ SVerticalBox::Slot()
-						.FillHeight(1.0f)
-						.Padding(FMargin(0, 10, 0, 0))
-						[
-							SNew(SBorder)
-								.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
-								.Padding(FMargin(10.0f))
-								[
-									SNew(SVerticalBox)
-										+ SVerticalBox::Slot()
-										.AutoHeight()
-										.Padding(FMargin(0, 0, 0, 5))
-										[
-											SNew(STextBlock)
-												.Text(LOCTEXT("ResponseLabel", "Gemini Response:"))
-												.Font(FAppStyle::GetFontStyle("BoldFont"))
-										]
-										+ SVerticalBox::Slot()
-										.FillHeight(1.0f)
-										[
-											SAssignNew(ResponseTextBlock, STextBlock)
-												.AutoWrapText(true)
-												.Text(LOCTEXT("InitialResponseText", "Response will appear here..."))
-										]
-								]
+							CreateMainInterfaceWidget()
 						]
 				]
 		];
+
+	// Set the active widget based on API key existence
+	ContentSwitcher->SetActiveWidgetIndex(bHasValidApiKey ? 1 : 0);
 
 	CurrentPromptText = FText::GetEmpty();
 }
@@ -489,9 +435,9 @@ void GeminiAssistantPanel::AddCommentNodeToBlueprint(UBlueprint* InBlueprint, UE
 					MaxY = FMath::Max(MaxY, NodeY + NodeHeight);
 				}
 			}
-			const float Padding = 65.f;
+			const float Padding = 50.f;
 			MinX -= Padding;
-			MinY -= Padding;
+			MinY -= Padding + 30.f;
 			MaxX += Padding;
 			MaxY += Padding;
 
@@ -536,6 +482,130 @@ LLMResponseParts GeminiAssistantPanel::ParseLLMResponse(const FString& FullRespo
 	}
 
 	return Result;
+}
+
+bool GeminiAssistantPanel::CheckApiKeyExists()
+{
+	// Check if API key exists in EditorPerProjectUserSettings
+	FString ApiKey;
+	if (GConfig->GetString(TEXT("GeminiAssistant"), TEXT("APIKey"), ApiKey, GEditorPerProjectIni))
+	{
+		return !ApiKey.IsEmpty();
+	}
+	return false;
+}
+
+void GeminiAssistantPanel::SaveApiKeyToSettings(const FString& ApiKey)
+{
+	// Save API key to EditorPerProjectUserSettings
+	GConfig->SetString(TEXT("GeminiAssistant"), TEXT("APIKey"), *ApiKey, GEditorPerProjectIni);
+	GConfig->Flush(false, GEditorPerProjectIni);
+}
+
+FReply GeminiAssistantPanel::OnSubmitApiKeyClicked()
+{
+	FString ApiKey = ApiKeyTextBox->GetText().ToString();
+	if (!ApiKey.IsEmpty())
+	{
+		SaveApiKeyToSettings(ApiKey);
+		bHasValidApiKey = true;
+
+		// Switch to main interface
+		ContentSwitcher->SetActiveWidgetIndex(1);
+	}
+	return FReply::Handled();
+}
+
+TSharedRef<SWidget> GeminiAssistantPanel::CreateApiKeySetupWidget()
+{
+	return SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(0, 0, 0, 10))
+		[
+			SNew(STextBlock)
+				.Text(LOCTEXT("ApiKeySetupTitle", "Gemini API Key Setup"))
+				.Font(FAppStyle::GetFontStyle("BoldFont"))
+		]
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(0, 0, 0, 10))
+		[
+			SNew(STextBlock)
+				.Text(LOCTEXT("ApiKeyInstructions", "Please enter your Gemini API key to continue:"))
+				.AutoWrapText(true)
+		]
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(0, 0, 0, 10))
+		[
+			SAssignNew(ApiKeyTextBox, SEditableTextBox)
+				.HintText(LOCTEXT("ApiKeyHint", "Enter your Gemini API key here..."))
+				.IsPassword(true) // Hide the API key text
+		]
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Right)
+		[
+			SAssignNew(SubmitApiKeyButton, SButton)
+				.Text(LOCTEXT("SubmitApiKey", "Submit"))
+				.OnClicked(this, &GeminiAssistantPanel::OnSubmitApiKeyClicked)
+				.IsEnabled_Lambda([this]() {
+				return ApiKeyTextBox.IsValid() && !ApiKeyTextBox->GetText().IsEmpty();
+					})
+		];
+}
+
+TSharedRef<SWidget> GeminiAssistantPanel::CreateMainInterfaceWidget()
+{
+	return SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(0, 0, 0, 5))
+		[
+			SAssignNew(WriteCommentsCheckBox, SCheckBox)
+				.Content()
+				[
+					SNew(STextBlock)
+						.Text(LOCTEXT("WriteCommentsLabel", "Write comment for selected nodes."))
+				]
+		]
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Left)
+		.Padding(FMargin(0, 0, 0, 10))
+		[
+			SNew(SButton)
+				.Text(LOCTEXT("ProcessButtonText", "Process with Gemini"))
+				.OnClicked(this, &GeminiAssistantPanel::OnProcessButtonClicked)
+				.IsEnabled_Lambda([this]() { return true; /*!CurrentPromptText.IsEmpty();*/ })
+		]
+		+ SVerticalBox::Slot()
+		.FillHeight(1.0f)
+		.Padding(FMargin(0, 10, 0, 0))
+		[
+			SNew(SBorder)
+				.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+				.Padding(FMargin(10.0f))
+				[
+					SNew(SVerticalBox)
+						+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(FMargin(0, 0, 0, 5))
+						[
+							SNew(STextBlock)
+								.Text(LOCTEXT("ResponseLabel", "Gemini Response:"))
+								.Font(FAppStyle::GetFontStyle("BoldFont"))
+						]
+						+ SVerticalBox::Slot()
+						.FillHeight(1.0f)
+						[
+							SAssignNew(ResponseTextBlock, STextBlock)
+								.AutoWrapText(true)
+								.Text(LOCTEXT("InitialResponseText", "Response will appear here..."))
+						]
+				]
+		];
 }
 
 #undef LOCTEXT_NAMESPACE

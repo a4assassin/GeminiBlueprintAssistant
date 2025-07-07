@@ -46,12 +46,24 @@ private:
 	LLMResponseParts ParseLLMResponse(const FString& FullResponse);
 
 	// --- UI Members ---
+	TSharedPtr<SWidgetSwitcher> ContentSwitcher;
 	TSharedPtr<SMultiLineEditableTextBox> PromptTextBox;
 	TSharedPtr<STextBlock> ResponseTextBlock;
 	TSharedPtr<SCheckBox> WriteCommentsCheckBox;
 	FText CurrentPromptText;
 	LLMResponseParts Results;
 
+	// --- API UI Memebers ---
+	bool bHasValidApiKey;
+	TSharedPtr<SEditableTextBox> ApiKeyTextBox;
+	TSharedPtr<SButton> SubmitApiKeyButton;
+	TSharedRef<SWidget> CreateApiKeySetupWidget();
+	TSharedRef<SWidget> CreateMainInterfaceWidget();
+	bool CheckApiKeyExists();
+	void SaveApiKeyToSettings(const FString& ApiKey);
+	FReply OnSubmitApiKeyClicked();
+
 	// --- API Client Member ---
 	TSharedPtr<FGeminiAPIClient> GeminiClient;
+	
 };
