@@ -54,7 +54,11 @@ void GeminiAssistantPanel::Construct(const FArguments& InArgs)
 	ChildSlot
 		[
 			SNew(SBorder)
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
 				.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+#else
+			.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+#endif
 				.Padding(FMargin(10.0f))
 				[
 					SAssignNew(ContentSwitcher, SWidgetSwitcher)
@@ -226,7 +230,11 @@ TArray<UEdGraphNode*> GeminiAssistantPanel::GetSelectedBlueprintNodes(UBlueprint
 	
 	for (TSharedRef<IBlueprintEditor> BlueprintEditorInstance : BlueprintEditorModule.GetBlueprintEditors())
 	{
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
 		if (FBlueprintEditorUtils::FindBlueprintForGraph(BlueprintEditorInstance->GetFocusedGraph()) == InBlueprint)
+#else
+		if (FBlueprintEditorUtils::FindBlueprintForGraph((StaticCastSharedRef<FBlueprintEditor>(BlueprintEditorInstance))->GetFocusedGraph()) == InBlueprint)
+#endif
 		{
 			FoundBlueprintEditor = BlueprintEditorInstance;
 			break;
@@ -269,7 +277,11 @@ TArray<UEdGraphNode*> GeminiAssistantPanel::GetAllNodesFromActiveGraph(UBlueprin
 
 	for (TSharedRef<IBlueprintEditor> BlueprintEditorInstance : BlueprintEditorModule.GetBlueprintEditors())
 	{
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
 		if (FBlueprintEditorUtils::FindBlueprintForGraph(BlueprintEditorInstance->GetFocusedGraph()) == InBlueprint)
+#else
+		if (FBlueprintEditorUtils::FindBlueprintForGraph((StaticCastSharedRef<FBlueprintEditor>(BlueprintEditorInstance))->GetFocusedGraph()) == InBlueprint)
+#endif
 		{
 			FoundBlueprintEditor = BlueprintEditorInstance;
 			break;
@@ -278,7 +290,11 @@ TArray<UEdGraphNode*> GeminiAssistantPanel::GetAllNodesFromActiveGraph(UBlueprin
 
 	if (FoundBlueprintEditor.IsValid())
 	{
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
 		UEdGraph* FocusedGraph = FoundBlueprintEditor->GetFocusedGraph();
+#else
+		UEdGraph* FocusedGraph = (StaticCastSharedPtr<FBlueprintEditor>(FoundBlueprintEditor))->GetFocusedGraph();
+#endif
 		if (FocusedGraph)
 		{
 			// Get all nodes from the focused graph
@@ -397,7 +413,11 @@ void GeminiAssistantPanel::AddCommentNodeToBlueprint(UBlueprint* InBlueprint, UE
 	// Find the specific Blueprint editor instance that is editing our InBlueprint.
 	for (TSharedRef<IBlueprintEditor> BlueprintEditorInstance : BlueprintEditorModule.GetBlueprintEditors())
 	{
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
 		if (FBlueprintEditorUtils::FindBlueprintForGraph(BlueprintEditorInstance->GetFocusedGraph()) == InBlueprint)
+#else
+		if (FBlueprintEditorUtils::FindBlueprintForGraph((StaticCastSharedRef<FBlueprintEditor>(BlueprintEditorInstance))->GetFocusedGraph()) == InBlueprint)
+#endif		
 		{
 			FoundBlueprintEditor = BlueprintEditorInstance;
 			break;
@@ -525,7 +545,11 @@ TSharedRef<SWidget> GeminiAssistantPanel::CreateApiKeySetupWidget()
 		[
 			SNew(STextBlock)
 				.Text(LOCTEXT("ApiKeySetupTitle", "Gemini API Key Setup"))
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
 				.Font(FAppStyle::GetFontStyle("BoldFont"))
+#else
+.Font(FCoreStyle::GetDefaultFontStyle("Bold", 12))
+#endif
 		]
 		+ SVerticalBox::Slot()
 		.AutoHeight()
@@ -585,7 +609,11 @@ TSharedRef<SWidget> GeminiAssistantPanel::CreateMainInterfaceWidget()
 		.Padding(FMargin(0, 10, 0, 0))
 		[
 			SNew(SBorder)
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
 				.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+#else
+				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+#endif
 				.Padding(FMargin(10.0f))
 				[
 					SNew(SVerticalBox)
@@ -595,7 +623,11 @@ TSharedRef<SWidget> GeminiAssistantPanel::CreateMainInterfaceWidget()
 						[
 							SNew(STextBlock)
 								.Text(LOCTEXT("ResponseLabel", "Gemini Response:"))
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
 								.Font(FAppStyle::GetFontStyle("BoldFont"))
+#else
+								.Font(FCoreStyle::GetDefaultFontStyle("Bold", 12))
+#endif
 						]
 						+ SVerticalBox::Slot()
 						.FillHeight(1.0f)
