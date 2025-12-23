@@ -39,6 +39,7 @@ private:
 
 	// --- Blueprint Interaction Functions ---
 	UBlueprint* GetActiveBlueprint() const;
+	UEdGraph* GetFocusedGraph(UBlueprint* InBlueprint);
 	TArray<UEdGraphNode*> GetSelectedBlueprintNodes(UBlueprint* InBlueprint) const;
 	TArray<UEdGraphNode*> GetAllNodesFromActiveGraph(UBlueprint* InBlueprint) const;
 	FString ExtractNodeDataForGemini(const TArray<UEdGraphNode*>& InNodes) const;
@@ -48,7 +49,7 @@ private:
 	// --- UI Members ---
 	TSharedPtr<SWidgetSwitcher> ContentSwitcher;
 	TSharedPtr<SMultiLineEditableTextBox> PromptTextBox;
-	TSharedPtr<STextBlock> ResponseTextBlock;
+	TSharedPtr<SMultiLineEditableText> ResponseTextBlock;
 	TSharedPtr<SCheckBox> WriteCommentsCheckBox;
 	FText CurrentPromptText;
 	LLMResponseParts Results;

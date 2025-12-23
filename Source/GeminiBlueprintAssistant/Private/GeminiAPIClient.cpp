@@ -24,7 +24,7 @@ void FGeminiAPIClient::GenerateContent(const FString& InPrompt, const FString& A
 
 	CurrentAPIKey = APIKey;
 
-	FString Url = TEXT("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=") + APIKey;
+	FString Url = TEXT("https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=") + APIKey;
 
 	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
 	Request->OnProcessRequestComplete().BindRaw(this, &FGeminiAPIClient::OnRequestComplete);

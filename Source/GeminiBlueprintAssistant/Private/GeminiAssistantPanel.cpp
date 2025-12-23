@@ -133,7 +133,7 @@ FReply GeminiAssistantPanel::OnProcessButtonClicked()
 	}
 	else
 	{
-		PromptToSend = FString::Printf(TEXT("Given the following Unreal Engine Blueprint nodes from Blueprint '%s', summarize their collective purpose and, Please respond in this exact format :  DETAILS: [summarise the selected nodes in user-friendly manner] \nSUMMARY: [concise one-line summary]. Blueprint Graph Nodes Data: %s\n"),
+		PromptToSend = FString::Printf(TEXT("Given the following Unreal Engine Blueprint nodes from Blueprint '%s', summarize their collective purpose and Please respond in this exact format :  DETAILS: [summarise the selected nodes in user-friendly manner] \nSUMMARY: [concise one-line summary]. Blueprint Graph Nodes Data: %s\n"),
 			*ActiveBlueprint->GetName(), *NodesData, 
 			CurrentPromptText.IsEmpty() ? TEXT("") : *FString::Printf(TEXT("\nUser Query: %s"), *CurrentPromptText.ToString()));
 		ResponseTextBlock->SetText(LOCTEXT("SummarizingSelected", "Summarizing selected Blueprint nodes with Gemini..."));
@@ -177,8 +177,10 @@ void GeminiAssistantPanel::OnGeminiResponse(FString ResponseContent, bool bSucce
 		// Ensure there's an active blueprint and at least one graph (UbergraphPages[0] is typically the Event Graph)
 		if (ActiveBlueprint && ActiveBlueprint->UbergraphPages.Num() > 0 && WriteCommentsCheckBox->IsChecked())
 		{
+			UEdGraph* FocusedGraphEditor = GetFocusedGraph(ActiveBlueprint);
+			if (FocusedGraphEditor)
 			// Add comment to the first graph (usually Event Graph) for simplicity
-			Results.Summary.Len() > 1 ? AddCommentNodeToBlueprint(ActiveBlueprint, ActiveBlueprint->UbergraphPages[0], Results.Summary) : (void)0;
+				Results.Summary.Len() > 1 ? AddCommentNodeToBlueprint(ActiveBlueprint, FocusedGraphEditor, Results.Summary) : (void)0;
 		}
 	}
 	else
@@ -213,6 +215,27 @@ UBlueprint* GeminiAssistantPanel::GetActiveBlueprint() const
 		}
 	}
 	return nullptr; 
+}
+
+UEdGraph* GeminiAssistantPanel::GetFocusedGraph(UBlueprint* InBlueprint)
+{
+	FBlueprintEditorModule& BlueprintEditorModule = FModuleManager::LoadModuleChecked<FBlueprintEditorModule>("Kismet");
+
+	UEdGraph* FocusedGraph;
+	// Find the specific Blueprint editor instance that is editing our InBlueprint.
+	for (TSharedRef<IBlueprintEditor> BlueprintEditorInstance : BlueprintEditorModule.GetBlueprintEditors())
+	{
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
+		FocusedGraph = BlueprintEditorInstance->GetFocusedGraph();
+#else
+		FocusedGraph = (StaticCastSharedRef<FBlueprintEditor>(BlueprintEditorInstance))->GetFocusedGraph();
+#endif	
+		if (FocusedGraph && FBlueprintEditorUtils::FindBlueprintForGraph(FocusedGraph) == InBlueprint)
+		{
+			return FocusedGraph;
+		}
+	}
+	return nullptr;
 }
 
 TArray<UEdGraphNode*> GeminiAssistantPanel::GetSelectedBlueprintNodes(UBlueprint* InBlueprint) const
@@ -632,7 +655,8 @@ TSharedRef<SWidget> GeminiAssistantPanel::CreateMainInterfaceWidget()
 						+ SVerticalBox::Slot()
 						.FillHeight(1.0f)
 						[
-							SAssignNew(ResponseTextBlock, STextBlock)
+							SAssignNew(ResponseTextBlock, SMultiLineEditableText)
+								.IsReadOnly(true)
 								.AutoWrapText(true)
 								.Text(LOCTEXT("InitialResponseText", "Response will appear here..."))
 						]
