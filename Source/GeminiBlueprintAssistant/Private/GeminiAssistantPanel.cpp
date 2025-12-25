@@ -12,11 +12,15 @@
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SCheckBox.h" 
 #include "EditorStyleSet.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
+
 
 // Core includes for config/file operations
 #include "Misc/ConfigCacheIni.h"
 #include "HAL/FileManager.h"
 #include "Misc/FileHelper.h"
+#include "HAL/PlatformApplicationMisc.h"
 
 // Blueprint Core Classes (These exist as direct headers)
 #include "Engine/Blueprint.h"
@@ -89,6 +93,7 @@ FReply GeminiAssistantPanel::OnProcessButtonClicked()
 		return FReply::Handled();
 	}
 	*/
+	CopyButton.Get()->SetVisibility(EVisibility::Collapsed);
 	ResponseTextBlock->SetText(LOCTEXT("ProcessingRequest", "Sending request to Gemini..."));
 	UE_LOG(LogTemp, Log, TEXT("Gemini Blueprint Assistant: Process button clicked. Prompt: %s"), *CurrentPromptText.ToString());
 
@@ -188,6 +193,25 @@ void GeminiAssistantPanel::OnGeminiResponse(FString ResponseContent, bool bSucce
 		ResponseTextBlock->SetText(FText::Format(LOCTEXT("GeminiError", "Gemini API Error: {0}"), FText::FromString(ErrorMessage)));
 		UE_LOG(LogTemp, Error, TEXT("Gemini API Error: %s"), *ErrorMessage);
 	}
+	CopyButton.Get()->SetVisibility(EVisibility::Visible);
+}
+
+FReply GeminiAssistantPanel::OnCopyResponseClicked()
+{
+	if (ResponseTextBlock.IsValid())
+	{
+		FString ResponseText = ResponseTextBlock->GetText().ToString();
+		if (!ResponseText.IsEmpty())
+		{
+			FPlatformApplicationMisc::ClipboardCopy(*ResponseText);
+
+			// Optional: Show a notification that text was copied
+			FNotificationInfo Info(FText::FromString("Response copied to clipboard!"));
+			Info.ExpireDuration = 3.0f;
+			FSlateNotificationManager::Get().AddNotification(Info);
+		}
+	}
+	return FReply::Handled();
 }
 
 
@@ -661,7 +685,18 @@ TSharedRef<SWidget> GeminiAssistantPanel::CreateMainInterfaceWidget()
 								.Text(LOCTEXT("InitialResponseText", "Response will appear here..."))
 						]
 				]
-		];
+		]
+		+ SVerticalBox::Slot()
+			.AutoHeight()
+			.HAlign(HAlign_Right)
+			.Padding(5.0f)
+			[
+				SAssignNew(CopyButton, SButton)
+					.Text(FText::FromString("Copy Response"))
+					.OnClicked(this, &GeminiAssistantPanel::OnCopyResponseClicked)
+					.ToolTipText(FText::FromString("Copy the Gemini response to clipboard"))
+					.Visibility(EVisibility::Collapsed)
+			];
 }
 
 #undef LOCTEXT_NAMESPACE

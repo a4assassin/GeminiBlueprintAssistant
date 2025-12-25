@@ -36,6 +36,7 @@ private:
 	void OnPromptTextChanged(const FText& InText);
 	void OnPromptTextCommitted(const FText& InText, ETextCommit::Type InCommitType);
 	void OnGeminiResponse(FString ResponseContent, bool bSuccess, FString ErrorMessage);
+	FReply OnCopyResponseClicked();
 
 	// --- Blueprint Interaction Functions ---
 	UBlueprint* GetActiveBlueprint() const;
@@ -58,6 +59,7 @@ private:
 	bool bHasValidApiKey;
 	TSharedPtr<SEditableTextBox> ApiKeyTextBox;
 	TSharedPtr<SButton> SubmitApiKeyButton;
+	TSharedPtr<SButton> CopyButton;
 	TSharedRef<SWidget> CreateApiKeySetupWidget();
 	TSharedRef<SWidget> CreateMainInterfaceWidget();
 	bool CheckApiKeyExists();
