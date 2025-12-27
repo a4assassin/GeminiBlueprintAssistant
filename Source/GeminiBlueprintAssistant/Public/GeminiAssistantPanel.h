@@ -37,6 +37,7 @@ private:
 	void OnPromptTextCommitted(const FText& InText, ETextCommit::Type InCommitType);
 	void OnGeminiResponse(FString ResponseContent, bool bSuccess, FString ErrorMessage);
 	FReply OnCopyResponseClicked();
+	FReply OnClearClicked();
 
 	// --- Blueprint Interaction Functions ---
 	UBlueprint* GetActiveBlueprint() const;
@@ -59,7 +60,9 @@ private:
 	bool bHasValidApiKey;
 	TSharedPtr<SEditableTextBox> ApiKeyTextBox;
 	TSharedPtr<SButton> SubmitApiKeyButton;
+	TSharedPtr<SButton> ProcessButton;
 	TSharedPtr<SButton> CopyButton;
+	TSharedPtr<SButton> ClearButton;
 	TSharedRef<SWidget> CreateApiKeySetupWidget();
 	TSharedRef<SWidget> CreateMainInterfaceWidget();
 	bool CheckApiKeyExists();
@@ -69,4 +72,8 @@ private:
 	// --- API Client Member ---
 	TSharedPtr<FGeminiAPIClient> GeminiClient;
 	
+	//Other Members
+	UBlueprint* CachedBlueprint;
+	UEdGraph* CachedFocusedGraph;
+	TArray<UEdGraphNode*> SelectedNodes;
 };

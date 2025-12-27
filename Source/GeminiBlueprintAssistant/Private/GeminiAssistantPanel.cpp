@@ -94,6 +94,8 @@ FReply GeminiAssistantPanel::OnProcessButtonClicked()
 	}
 	*/
 	CopyButton.Get()->SetVisibility(EVisibility::Collapsed);
+	ClearButton.Get()->SetVisibility(EVisibility::Collapsed);
+	ProcessButton.Get()->SetVisibility(EVisibility::Hidden);
 	ResponseTextBlock->SetText(LOCTEXT("ProcessingRequest", "Sending request to Gemini..."));
 	UE_LOG(LogTemp, Log, TEXT("Gemini Blueprint Assistant: Process button clicked. Prompt: %s"), *CurrentPromptText.ToString());
 
@@ -113,9 +115,10 @@ FReply GeminiAssistantPanel::OnProcessButtonClicked()
 		return FReply::Handled();
 	}
 
-	TArray<UEdGraphNode*> SelectedNodes = GetSelectedBlueprintNodes(ActiveBlueprint);
+	SelectedNodes = GetSelectedBlueprintNodes(ActiveBlueprint);
 	FString NodesData = ExtractNodeDataForGemini(SelectedNodes);
-
+	CachedBlueprint = ActiveBlueprint;
+	CachedFocusedGraph = GetFocusedGraph(ActiveBlueprint);
 	FString PromptToSend;
 	if (SelectedNodes.Num() == 0)
 	{
@@ -180,12 +183,11 @@ void GeminiAssistantPanel::OnGeminiResponse(FString ResponseContent, bool bSucce
 
 		UBlueprint* ActiveBlueprint = GetActiveBlueprint();
 		// Ensure there's an active blueprint and at least one graph (UbergraphPages[0] is typically the Event Graph)
-		if (ActiveBlueprint && ActiveBlueprint->UbergraphPages.Num() > 0 && WriteCommentsCheckBox->IsChecked())
+		if (WriteCommentsCheckBox->IsChecked())
 		{
-			UEdGraph* FocusedGraphEditor = GetFocusedGraph(ActiveBlueprint);
-			if (FocusedGraphEditor)
+			if (CachedFocusedGraph && CachedBlueprint)
 			// Add comment to the first graph (usually Event Graph) for simplicity
-				Results.Summary.Len() > 1 ? AddCommentNodeToBlueprint(ActiveBlueprint, FocusedGraphEditor, Results.Summary) : (void)0;
+				Results.Summary.Len() > 1 ? AddCommentNodeToBlueprint(CachedBlueprint, CachedFocusedGraph, Results.Summary) : (void)0;
 		}
 	}
 	else
@@ -193,7 +195,12 @@ void GeminiAssistantPanel::OnGeminiResponse(FString ResponseContent, bool bSucce
 		ResponseTextBlock->SetText(FText::Format(LOCTEXT("GeminiError", "Gemini API Error: {0}"), FText::FromString(ErrorMessage)));
 		UE_LOG(LogTemp, Error, TEXT("Gemini API Error: %s"), *ErrorMessage);
 	}
+	ProcessButton.Get()->SetVisibility(EVisibility::Visible);
 	CopyButton.Get()->SetVisibility(EVisibility::Visible);
+	ClearButton.Get()->SetVisibility(EVisibility::Visible);
+	CachedFocusedGraph = nullptr;
+	CachedBlueprint = nullptr;
+	SelectedNodes.Empty();
 }
 
 FReply GeminiAssistantPanel::OnCopyResponseClicked()
@@ -210,6 +217,15 @@ FReply GeminiAssistantPanel::OnCopyResponseClicked()
 			Info.ExpireDuration = 3.0f;
 			FSlateNotificationManager::Get().AddNotification(Info);
 		}
+	}
+	return FReply::Handled();
+}
+
+FReply GeminiAssistantPanel::OnClearClicked()
+{
+	if (ResponseTextBlock.IsValid())
+	{
+		ResponseTextBlock->SetText(FText::FromString(""));
 	}
 	return FReply::Handled();
 }
@@ -264,11 +280,11 @@ UEdGraph* GeminiAssistantPanel::GetFocusedGraph(UBlueprint* InBlueprint)
 
 TArray<UEdGraphNode*> GeminiAssistantPanel::GetSelectedBlueprintNodes(UBlueprint* InBlueprint) const
 {
-	TArray<UEdGraphNode*> SelectedNodes;
+	TArray<UEdGraphNode*> FSelectedNodes;
 
 	if (!InBlueprint)
 	{
-		return SelectedNodes;
+		return FSelectedNodes;
 	}
 
 	FBlueprintEditorModule& BlueprintEditorModule = FModuleManager::LoadModuleChecked<FBlueprintEditorModule>("Kismet");
@@ -299,13 +315,13 @@ TArray<UEdGraphNode*> GeminiAssistantPanel::GetSelectedBlueprintNodes(UBlueprint
 			{
 				if (UEdGraphNode* CurrentNode = Cast<UEdGraphNode>(Node))
 				{
-					SelectedNodes.Add(CurrentNode);
+					FSelectedNodes.Add(CurrentNode);
 				}
 			}
 		}
 	}
 
-	return SelectedNodes;
+	return FSelectedNodes;
 }
 
 TArray<UEdGraphNode*> GeminiAssistantPanel::GetAllNodesFromActiveGraph(UBlueprint* InBlueprint) const
@@ -461,7 +477,7 @@ void GeminiAssistantPanel::AddCommentNodeToBlueprint(UBlueprint* InBlueprint, UE
 	for (TSharedRef<IBlueprintEditor> BlueprintEditorInstance : BlueprintEditorModule.GetBlueprintEditors())
 	{
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
-		if (FBlueprintEditorUtils::FindBlueprintForGraph(BlueprintEditorInstance->GetFocusedGraph()) == InBlueprint)
+		if (FBlueprintEditorUtils::FindBlueprintForGraph(CachedFocusedGraph) == InBlueprint)
 #else
 		if (FBlueprintEditorUtils::FindBlueprintForGraph((StaticCastSharedRef<FBlueprintEditor>(BlueprintEditorInstance))->GetFocusedGraph()) == InBlueprint)
 #endif		
@@ -470,15 +486,14 @@ void GeminiAssistantPanel::AddCommentNodeToBlueprint(UBlueprint* InBlueprint, UE
 			break;
 		}
 	}
-
+	
 	if (FoundBlueprintEditor.IsValid())
 	{
 		TSharedPtr<FBlueprintEditor> BlueprintEditor = StaticCastSharedPtr<FBlueprintEditor>(FoundBlueprintEditor);
 
 		if (BlueprintEditor.IsValid())
 		{
-			FGraphPanelSelectionSet FoundSelectedNodes = BlueprintEditor->GetSelectedNodes();
-			if (FoundSelectedNodes.Num() == 0)
+			if (SelectedNodes.Num() == 0)
 			{
 				UE_LOG(LogTemp, Warning, TEXT("No nodes selected to wrap with comment"));
 				return;
@@ -486,7 +501,7 @@ void GeminiAssistantPanel::AddCommentNodeToBlueprint(UBlueprint* InBlueprint, UE
 			float MinX = FLT_MAX, MinY = FLT_MAX;
 			float MaxX = -FLT_MAX, MaxY = -FLT_MAX;
 
-			for (UObject* ANode : FoundSelectedNodes)
+			for (UObject* ANode : SelectedNodes)
 			{
 				if (UEdGraphNode* Node = Cast<UEdGraphNode>(ANode))
 				{
@@ -515,7 +530,7 @@ void GeminiAssistantPanel::AddCommentNodeToBlueprint(UBlueprint* InBlueprint, UE
 			NewCommentNode->NodeHeight = MaxY - MinY;
 			NewCommentNode->CommentColor = FLinearColor::White;
 
-			for (UObject* Node : FoundSelectedNodes)
+			for (UObject* Node : SelectedNodes)
 			{
 				if (UEdGraphNode* CurrentNode = Cast<UEdGraphNode>(Node))
 				{
@@ -646,7 +661,7 @@ TSharedRef<SWidget> GeminiAssistantPanel::CreateMainInterfaceWidget()
 		.HAlign(HAlign_Left)
 		.Padding(FMargin(0, 0, 0, 10))
 		[
-			SNew(SButton)
+			SAssignNew(ProcessButton, SButton)
 				.Text(LOCTEXT("ProcessButtonText", "Process with Gemini"))
 				.OnClicked(this, &GeminiAssistantPanel::OnProcessButtonClicked)
 				.IsEnabled_Lambda([this]() { return true; /*!CurrentPromptText.IsEmpty();*/ })
@@ -687,16 +702,27 @@ TSharedRef<SWidget> GeminiAssistantPanel::CreateMainInterfaceWidget()
 				]
 		]
 		+ SVerticalBox::Slot()
-			.AutoHeight()
-			.HAlign(HAlign_Right)
-			.Padding(5.0f)
-			[
-				SAssignNew(CopyButton, SButton)
-					.Text(FText::FromString("Copy Response"))
-					.OnClicked(this, &GeminiAssistantPanel::OnCopyResponseClicked)
-					.ToolTipText(FText::FromString("Copy the Gemini response to clipboard"))
-					.Visibility(EVisibility::Collapsed)
-			];
+		.AutoHeight()
+		.HAlign(HAlign_Right)
+		.Padding(5.0f)
+		[
+			SAssignNew(CopyButton, SButton)
+				.Text(FText::FromString("Copy Response"))
+				.OnClicked(this, &GeminiAssistantPanel::OnCopyResponseClicked)
+				.ToolTipText(FText::FromString("Copy the Gemini response to clipboard"))
+				.Visibility(EVisibility::Collapsed)
+		]
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Right)
+		.Padding(5.0f)
+		[
+			SAssignNew(ClearButton, SButton)
+				.Text(FText::FromString("Clear Response"))
+				.OnClicked(this, &GeminiAssistantPanel::OnClearClicked)
+				.ToolTipText(FText::FromString("Clear the text from panel"))
+				.Visibility(EVisibility::Collapsed)
+		];
 }
 
 #undef LOCTEXT_NAMESPACE
